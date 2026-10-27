@@ -229,23 +229,39 @@ function Combat() {
       <div className="pointer-events-none absolute inset-x-[-10%] bottom-[22%] h-40 anim-mist bg-gradient-to-t from-transparent via-jade-glow/15 to-transparent blur-2xl" />
 
       {/* Top HUD */}
-      <header className="combat-hud absolute inset-x-0 top-0 flex items-start justify-between gap-2 p-2 md:gap-3 md:p-4">
-        {/* Player panel — scales from ~40% on mobile to fixed cap on desktop */}
-        <div className="panel corner flex w-[42%] min-w-0 max-w-xs items-center gap-2 rounded-sm p-2 sm:gap-3 sm:p-3 md:w-72 lg:w-80">
-          <div className="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-full border-2 border-gold/70 bg-ink sm:h-12 sm:w-12">
-            <img src={char.image} alt="" className="h-12 w-12 translate-y-1 object-cover sm:h-16 sm:w-16 sm:translate-y-2" />
+      <header className="combat-hud absolute inset-x-0 top-0 flex items-start justify-between gap-1.5 p-1.5 sm:gap-2 sm:p-2 md:gap-3 md:p-4">
+
+        {/* ── Player panel ─────────────────────────────────────── */}
+        <div className="panel corner flex min-w-0 items-center gap-1.5 rounded-sm p-1.5
+                        w-[46%] sm:w-[42%] sm:gap-2 sm:p-2 md:w-64 lg:w-80">
+          {/* Avatar: hidden on tiny mobile, visible sm+ */}
+          <div className="hidden h-8 w-8 shrink-0 place-items-center overflow-hidden rounded-full border border-gold/70 bg-ink sm:grid sm:h-10 sm:w-10 md:h-12 md:w-12">
+            <img src={char.image} alt="" className="h-11 w-11 translate-y-1 object-cover md:h-16 md:w-16 md:translate-y-2" />
           </div>
-          <div className="min-w-0 flex-1 space-y-1">
-            <div className="flex items-baseline justify-between gap-1">
-              <span className="truncate text-[11px] font-semibold sm:text-sm">{state.playerName || char.name}</span>
-              <span className="hidden whitespace-nowrap font-display text-xs text-jade-glow sm:inline sm:text-sm">{rank.label}</span>
+          <div className="min-w-0 flex-1 space-y-0.5">
+            {/* Name + rank — single line, clipped */}
+            <div className="flex items-center justify-between gap-1">
+              <span className="truncate text-[10px] font-semibold leading-tight sm:text-[11px]">{state.playerName || char.name}</span>
+              <span className="shrink-0 font-display text-[10px] text-jade-glow sm:text-xs">{rank.label}</span>
             </div>
-            <Bar value={(s.hp / PLAYER_MAX_HP) * 100} kind="hp" label="血" />
-            <Bar value={s.qi} kind="qi" label="灵" />
+            {/* HP bar */}
+            <div className="flex items-center gap-1">
+              <span className="w-4 shrink-0 text-[9px] text-gold">血</span>
+              <div className="h-1.5 flex-1 overflow-hidden rounded-[2px] border border-gold/30 bg-ink/80">
+                <div className="h-full bar-hp transition-[width] duration-300" style={{ width: `${Math.max(0, Math.min(100, (s.hp / PLAYER_MAX_HP) * 100))}%` }} />
+              </div>
+            </div>
+            {/* Qi bar */}
+            <div className="flex items-center gap-1">
+              <span className="w-4 shrink-0 text-[9px] text-gold">灵</span>
+              <div className="h-1.5 flex-1 overflow-hidden rounded-[2px] border border-gold/30 bg-ink/80">
+                <div className="h-full bar-qi transition-[width] duration-300" style={{ width: `${Math.max(0, Math.min(100, s.qi))}%` }} />
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Center nav — hidden on small screens */}
+        {/* ── Center nav (desktop only) ─────────────────────────── */}
         <div className="panel corner hidden rounded-sm px-4 py-2 lg:block">
           <GameNav compact />
           <div className="mt-1 text-center text-[10px] uppercase tracking-[0.3em] text-foreground/60">
@@ -253,30 +269,30 @@ function Combat() {
           </div>
         </div>
 
-        {/* Score panel — scales symmetrically with player panel */}
-        <div className="panel corner w-[42%] min-w-0 max-w-[16rem] rounded-sm p-2 sm:p-3 md:w-60 lg:w-64">
-          <div className="flex items-baseline justify-between">
-            <span className="text-[10px] tracking-widest text-gold sm:text-[11px]">功德 SCORE</span>
-            <span className="font-display text-lg text-jade-glow sm:text-2xl">{s.score.toLocaleString()}</span>
+        {/* ── Score panel ──────────────────────────────────────── */}
+        <div className="panel corner min-w-0 rounded-sm p-1.5
+                        w-[46%] sm:w-[42%] sm:p-2 md:w-52 lg:w-60">
+          {/* Score row */}
+          <div className="flex items-baseline justify-between gap-1">
+            <span className="text-[9px] tracking-widest text-gold sm:text-[10px]">SCORE</span>
+            <span className="font-display text-base leading-tight text-jade-glow sm:text-lg md:text-2xl">{s.score.toLocaleString()}</span>
           </div>
-          <div className="mt-1.5 flex items-center justify-between text-[10px] text-foreground/70 sm:text-[11px]">
-            <span>词汇</span>
-            <span>{mastered}/{activeWords.length}</span>
-          </div>
-          <div className="mt-1 h-1.5 overflow-hidden rounded-[1px] bg-foreground/15">
+          {/* Vocab progress */}
+          <div className="mt-1 h-1 overflow-hidden rounded-[1px] bg-foreground/15">
             <div className="h-full bg-jade" style={{ width: `${(mastered / Math.max(1, activeWords.length)) * 100}%` }} />
           </div>
-          <div className="mt-1.5 flex justify-between text-[10px] sm:text-[11px]">
-            <span className="text-gold/80">×{s.combo} combo</span>
-            <span className="text-foreground/70">斩 {s.kills}</span>
+          {/* Combo + kills */}
+          <div className="mt-0.5 flex items-center justify-between">
+            <span className="text-[9px] text-gold/80 sm:text-[10px]">×{s.combo} 连击</span>
+            <span className="text-[9px] text-foreground/70 sm:text-[10px]">斩{s.kills}</span>
           </div>
         </div>
       </header>
 
-      {/* Battlefield — top/bottom in % so it scales with screen height */}
-      <section className="combat-battlefield absolute inset-x-0" style={{ top: "16%", bottom: "18%" }}>
-        {/* hero */}
-        <div className="absolute bottom-0 left-[3%] w-[22vw] min-w-[100px] max-w-[300px]">
+      {/* Battlefield */}
+      <section className="combat-battlefield absolute inset-x-0" style={{ top: "18%", bottom: "20%" }}>
+        {/* hero — smaller min-w on mobile */}
+        <div className="absolute bottom-0 left-[3%] w-[18vw] min-w-[80px] max-w-[260px] sm:w-[22vw] sm:min-w-[110px] sm:max-w-[300px]">
           {shots.length > 0 && (
             <div className="absolute -left-[10%] top-[10%] aspect-square w-[120%] opacity-70">
               <Seal char={char.id === "sword" ? "剑" : "符"} />
@@ -311,12 +327,12 @@ function Combat() {
         {m && (
           <div
             className={`absolute bottom-0 transition-opacity duration-500 ${m.dying ? "opacity-0" : "opacity-100"}`}
-            style={{ left: `${monsterLeft}%`, width: `calc(clamp(170px, 22vw, 340px) * ${m.def.scale})`, bottom: m.def.motion === "fly" ? "18%" : 0 }}
+            style={{ left: `${monsterLeft}%`, width: `calc(clamp(100px, 18vw, 300px) * ${m.def.scale})`, bottom: m.def.motion === "fly" ? "18%" : 0 }}
           >
-            <div className="absolute bottom-full left-1/2 mb-2 w-max -translate-x-1/2 text-center">
+            <div className="absolute bottom-full left-1/2 mb-1 w-max -translate-x-1/2 text-center">
               {s.word && !m.dying && (
-                <div className="panel corner rounded-sm px-7 pb-3 pt-3">
-                  <div className="font-display leading-none text-foreground glow-text" style={{ fontSize: "clamp(2.5rem, 9vw, 6rem)" }}>{s.word.hanzi}</div>
+                <div className="panel corner rounded-sm px-3 pb-2 pt-2 sm:px-6 sm:pb-3 sm:pt-3">
+                  <div className="font-display leading-none text-foreground glow-text" style={{ fontSize: "clamp(1.8rem, 7vw, 5rem)" }}>{s.word.hanzi}</div>
                 </div>
               )}
 
@@ -338,26 +354,24 @@ function Combat() {
       </section>
 
       {/* Input */}
-      <footer className="combat-footer absolute inset-x-0 bottom-0 flex justify-center p-2 md:p-4">
+      <footer className="combat-footer absolute inset-x-0 bottom-0 flex justify-center p-1.5 sm:p-2 md:p-4">
         <form
-          className={`panel corner w-full max-w-3xl rounded-sm p-2 md:p-4 ${shake ? "anim-hurt" : ""}`}
+          className={`panel corner w-full max-w-3xl rounded-sm p-1.5 sm:p-2 md:p-4 ${shake ? "anim-hurt" : ""}`}
           onSubmit={(e) => { e.preventDefault(); submit(); }}
         >
-          <div className="mb-2 flex items-center justify-between text-[11px] tracking-widest text-gold/80">
-            <span>输入汉字 · Gõ chữ Hán bằng bộ gõ tiếng Trung</span>
-            <span className="flex items-center gap-3">
-              <span className={s.timeLeft < 3 ? "text-blood" : ""}>⏳ {Math.max(0, Math.ceil(s.timeLeft))}s</span>
-              <span className="hidden sm:inline">Enter ↵ 出招</span>
-            </span>
+          {/* Timer bar + hint */}
+          <div className="mb-1 flex items-center justify-between gap-2 text-[9px] tracking-widest text-gold/70 sm:text-[11px]">
+            <span className="hidden sm:inline">输入汉字 · Gõ chữ Hán</span>
+            <span className={`font-semibold ${s.timeLeft < 3 ? "text-blood" : ""}`}>⏳ {Math.max(0, Math.ceil(s.timeLeft))}s</span>
           </div>
-          <div className="mb-2 h-1 overflow-hidden rounded-sm bg-foreground/10">
-            <div className="h-full bar-qi" style={{ width: `${(Math.max(0, s.timeLeft) / TURN_SECONDS) * 100}%` }} />
+          <div className="mb-1.5 h-1 overflow-hidden rounded-sm bg-foreground/10">
+            <div className="h-full bar-qi transition-[width] duration-100" style={{ width: `${(Math.max(0, s.timeLeft) / TURN_SECONDS) * 100}%` }} />
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5 sm:gap-2">
             <div className="relative flex-1">
               {composing && (
-                <div className="panel absolute -top-11 left-2 rounded-sm px-3 py-1.5 text-sm text-jade-glow">
-                  拼音 · {composing}
+                <div className="panel absolute -top-8 left-2 rounded-sm px-2 py-1 text-xs text-jade-glow sm:-top-11 sm:px-3 sm:py-1.5 sm:text-sm">
+                  拼音·{composing}
                 </div>
               )}
               <input
@@ -375,10 +389,11 @@ function Combat() {
                 }}
                 placeholder="例如：保护"
                 aria-label="Chinese answer"
-                className="h-10 w-full rounded-sm border border-jade/50 bg-ink/80 px-3 font-display text-2xl text-foreground outline-none placeholder:text-foreground/25 focus:border-jade-glow sm:h-14 sm:px-4 sm:text-3xl"
+                className="h-9 w-full rounded-sm border border-jade/50 bg-ink/80 px-2 font-display text-xl text-foreground outline-none placeholder:text-foreground/25 focus:border-jade-glow sm:h-12 sm:px-4 sm:text-2xl md:h-14 md:text-3xl"
               />
             </div>
-            <button type="submit" disabled={s.over} className="btn-jade h-10 px-4 font-display text-xl sm:h-14 sm:px-6 sm:text-2xl">
+            <button type="submit" disabled={s.over}
+              className="btn-jade h-9 shrink-0 px-3 font-display text-base sm:h-12 sm:px-5 sm:text-xl md:h-14 md:px-6 md:text-2xl">
               {char.id === "sword" ? "御剑" : "发符"}
             </button>
           </div>
@@ -387,17 +402,17 @@ function Combat() {
 
       {s.over && (
         <div className="absolute inset-0 grid place-items-center bg-ink/70 backdrop-blur-sm">
-          <div className="panel corner w-full max-w-sm rounded-sm p-7 text-center">
-            <h2 className="font-display text-5xl text-blood glow-text">道消</h2>
-            <p className="mt-1 text-xs uppercase tracking-[0.3em] text-foreground/60">Tu vi tạm tan · Hết máu</p>
-            <dl className="mt-5 grid grid-cols-3 gap-2 text-sm">
-              <div><dt className="text-foreground/60">Điểm</dt><dd className="font-display text-2xl text-jade-glow">{s.score}</dd></div>
-              <div><dt className="text-foreground/60">Hạ gục</dt><dd className="font-display text-2xl text-jade-glow">{s.kills}</dd></div>
-              <div><dt className="text-foreground/60">Liên kích</dt><dd className="font-display text-2xl text-jade-glow">{s.maxCombo}</dd></div>
+          <div className="panel corner mx-3 w-full max-w-sm rounded-sm p-4 text-center sm:mx-0 sm:p-7">
+            <h2 className="font-display glow-text text-blood" style={{ fontSize: "clamp(2rem, 10vw, 3rem)" }}>道消</h2>
+            <p className="mt-1 text-[10px] uppercase tracking-[0.2em] text-foreground/60 sm:tracking-[0.3em] sm:text-xs">Tu vi tạm tan · Hết máu</p>
+            <dl className="mt-3 grid grid-cols-3 gap-2 text-sm sm:mt-5">
+              <div><dt className="text-[10px] text-foreground/60 sm:text-sm">Điểm</dt><dd className="font-display text-xl text-jade-glow sm:text-2xl">{s.score}</dd></div>
+              <div><dt className="text-[10px] text-foreground/60 sm:text-sm">Hạ gục</dt><dd className="font-display text-xl text-jade-glow sm:text-2xl">{s.kills}</dd></div>
+              <div><dt className="text-[10px] text-foreground/60 sm:text-sm">Combo</dt><dd className="font-display text-xl text-jade-glow sm:text-2xl">{s.maxCombo}</dd></div>
             </dl>
-            <div className="mt-6 flex gap-2">
-              <button onClick={restart} className="btn-jade flex-1 py-2.5">Tu luyện lại</button>
-              <Link to="/stats" className="btn-ghost flex-1 py-2.5">Xem tiến độ</Link>
+            <div className="mt-3 flex gap-2 sm:mt-6">
+              <button onClick={restart} className="btn-jade flex-1 py-2 text-sm sm:py-2.5">Tu luyện lại</button>
+              <Link to="/stats" className="btn-ghost flex-1 py-2 text-sm sm:py-2.5">Xem tiến độ</Link>
             </div>
           </div>
         </div>

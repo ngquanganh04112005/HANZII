@@ -223,27 +223,29 @@ function Combat() {
     : s.monsterAnim;
 
   return (
-    <main className="relative h-screen min-h-[620px] w-full overflow-hidden bg-ink font-serif text-foreground">
+    <main className="combat-screen relative w-full overflow-hidden bg-ink font-serif text-foreground">
       <img src={bg} alt="" width={1920} height={1088} className="absolute inset-0 h-full w-full object-cover" />
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-ink/50 via-transparent to-ink/80" />
       <div className="pointer-events-none absolute inset-x-[-10%] bottom-[22%] h-40 anim-mist bg-gradient-to-t from-transparent via-jade-glow/15 to-transparent blur-2xl" />
 
       {/* Top HUD */}
-      <header className="absolute inset-x-0 top-0 flex items-start justify-between gap-3 p-3 md:p-5">
-        <div className="panel corner flex w-60 items-center gap-3 rounded-sm p-3 md:w-80">
-          <div className="grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-full border-2 border-gold/70 bg-ink">
-            <img src={char.image} alt="" className="h-16 w-16 translate-y-2 object-cover" />
+      <header className="combat-hud absolute inset-x-0 top-0 flex items-start justify-between gap-2 p-2 md:gap-3 md:p-4">
+        {/* Player panel — scales from ~40% on mobile to fixed cap on desktop */}
+        <div className="panel corner flex w-[42%] min-w-0 max-w-xs items-center gap-2 rounded-sm p-2 sm:gap-3 sm:p-3 md:w-72 lg:w-80">
+          <div className="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-full border-2 border-gold/70 bg-ink sm:h-12 sm:w-12">
+            <img src={char.image} alt="" className="h-12 w-12 translate-y-1 object-cover sm:h-16 sm:w-16 sm:translate-y-2" />
           </div>
-          <div className="flex-1 space-y-1">
-            <div className="flex items-baseline justify-between gap-2">
-              <span className="truncate text-sm font-semibold">{state.playerName || char.name}</span>
-              <span className="whitespace-nowrap font-display text-sm text-jade-glow">{rank.label}</span>
+          <div className="min-w-0 flex-1 space-y-1">
+            <div className="flex items-baseline justify-between gap-1">
+              <span className="truncate text-[11px] font-semibold sm:text-sm">{state.playerName || char.name}</span>
+              <span className="hidden whitespace-nowrap font-display text-xs text-jade-glow sm:inline sm:text-sm">{rank.label}</span>
             </div>
             <Bar value={(s.hp / PLAYER_MAX_HP) * 100} kind="hp" label="血" />
             <Bar value={s.qi} kind="qi" label="灵" />
           </div>
         </div>
 
+        {/* Center nav — hidden on small screens */}
         <div className="panel corner hidden rounded-sm px-4 py-2 lg:block">
           <GameNav compact />
           <div className="mt-1 text-center text-[10px] uppercase tracking-[0.3em] text-foreground/60">
@@ -251,29 +253,30 @@ function Combat() {
           </div>
         </div>
 
-        <div className="panel corner w-52 rounded-sm p-3 md:w-64">
+        {/* Score panel — scales symmetrically with player panel */}
+        <div className="panel corner w-[42%] min-w-0 max-w-[16rem] rounded-sm p-2 sm:p-3 md:w-60 lg:w-64">
           <div className="flex items-baseline justify-between">
-            <span className="text-[11px] tracking-widest text-gold">功德 SCORE</span>
-            <span className="font-display text-2xl text-jade-glow">{s.score.toLocaleString()}</span>
+            <span className="text-[10px] tracking-widest text-gold sm:text-[11px]">功德 SCORE</span>
+            <span className="font-display text-lg text-jade-glow sm:text-2xl">{s.score.toLocaleString()}</span>
           </div>
-          <div className="mt-2 flex items-center justify-between text-[11px] text-foreground/70">
-            <span>词汇 · Thuần thục</span>
-            <span>{mastered} / {activeWords.length}</span>
+          <div className="mt-1.5 flex items-center justify-between text-[10px] text-foreground/70 sm:text-[11px]">
+            <span>词汇</span>
+            <span>{mastered}/{activeWords.length}</span>
           </div>
           <div className="mt-1 h-1.5 overflow-hidden rounded-[1px] bg-foreground/15">
             <div className="h-full bg-jade" style={{ width: `${(mastered / Math.max(1, activeWords.length)) * 100}%` }} />
           </div>
-          <div className="mt-2 flex justify-between text-[11px]">
-            <span className="text-gold/80">连击 Combo ×{s.combo}</span>
+          <div className="mt-1.5 flex justify-between text-[10px] sm:text-[11px]">
+            <span className="text-gold/80">×{s.combo} combo</span>
             <span className="text-foreground/70">斩 {s.kills}</span>
           </div>
         </div>
       </header>
 
-      {/* Battlefield */}
-      <section className="absolute inset-x-0 bottom-[150px] top-[120px] md:bottom-[170px]">
+      {/* Battlefield — top/bottom in % so it scales with screen height */}
+      <section className="combat-battlefield absolute inset-x-0" style={{ top: "16%", bottom: "18%" }}>
         {/* hero */}
-        <div className="absolute bottom-0 left-[4%] w-[22vw] min-w-[160px] max-w-[320px]">
+        <div className="absolute bottom-0 left-[3%] w-[22vw] min-w-[100px] max-w-[300px]">
           {shots.length > 0 && (
             <div className="absolute -left-[10%] top-[10%] aspect-square w-[120%] opacity-70">
               <Seal char={char.id === "sword" ? "剑" : "符"} />
@@ -313,7 +316,7 @@ function Combat() {
             <div className="absolute bottom-full left-1/2 mb-2 w-max -translate-x-1/2 text-center">
               {s.word && !m.dying && (
                 <div className="panel corner rounded-sm px-7 pb-3 pt-3">
-                  <div className="font-display text-6xl leading-none text-foreground glow-text md:text-8xl">{s.word.hanzi}</div>
+                  <div className="font-display leading-none text-foreground glow-text" style={{ fontSize: "clamp(2.5rem, 9vw, 6rem)" }}>{s.word.hanzi}</div>
                 </div>
               )}
 
@@ -335,9 +338,9 @@ function Combat() {
       </section>
 
       {/* Input */}
-      <footer className="absolute inset-x-0 bottom-0 flex justify-center p-3 md:p-5">
+      <footer className="combat-footer absolute inset-x-0 bottom-0 flex justify-center p-2 md:p-4">
         <form
-          className={`panel corner w-full max-w-3xl rounded-sm p-3 md:p-4 ${shake ? "anim-hurt" : ""}`}
+          className={`panel corner w-full max-w-3xl rounded-sm p-2 md:p-4 ${shake ? "anim-hurt" : ""}`}
           onSubmit={(e) => { e.preventDefault(); submit(); }}
         >
           <div className="mb-2 flex items-center justify-between text-[11px] tracking-widest text-gold/80">
@@ -372,10 +375,10 @@ function Combat() {
                 }}
                 placeholder="例如：保护"
                 aria-label="Chinese answer"
-                className="h-14 w-full rounded-sm border border-jade/50 bg-ink/80 px-4 font-display text-3xl text-foreground outline-none placeholder:text-foreground/25 focus:border-jade-glow"
+                className="h-10 w-full rounded-sm border border-jade/50 bg-ink/80 px-3 font-display text-2xl text-foreground outline-none placeholder:text-foreground/25 focus:border-jade-glow sm:h-14 sm:px-4 sm:text-3xl"
               />
             </div>
-            <button type="submit" disabled={s.over} className="btn-jade h-14 px-6 font-display text-2xl">
+            <button type="submit" disabled={s.over} className="btn-jade h-10 px-4 font-display text-xl sm:h-14 sm:px-6 sm:text-2xl">
               {char.id === "sword" ? "御剑" : "发符"}
             </button>
           </div>

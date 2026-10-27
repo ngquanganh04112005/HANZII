@@ -65,8 +65,8 @@ export function Shell({ children }: { children: ReactNode }) {
     <main className="relative min-h-screen w-full overflow-x-hidden bg-ink font-serif text-foreground">
       <img src={bg} alt="" width={1920} height={1088} className="fixed inset-0 h-full w-full object-cover" />
       <div className="fixed inset-0 bg-gradient-to-b from-ink/70 via-ink/55 to-ink/90" />
-      <div className="relative mx-auto max-w-6xl px-4 py-5 md:px-8">
-        <div className="panel corner mb-6 rounded-sm px-4 py-2.5">
+      <div className="relative mx-auto max-w-6xl px-3 py-3 sm:px-5 sm:py-4 md:px-8 md:py-5">
+        <div className="panel corner mb-4 rounded-sm px-3 py-2 sm:mb-6 sm:px-4 sm:py-2.5">
           <GameNav />
         </div>
         {children}
@@ -77,8 +77,8 @@ export function Shell({ children }: { children: ReactNode }) {
 
 export function SectionTitle({ cn, vi }: { cn: string; vi: string }) {
   return (
-    <div className="mb-5">
-      <h1 className="font-display text-4xl text-gold glow-text md:text-5xl">{cn}</h1>
+    <div className="mb-4 sm:mb-5">
+      <h1 className="font-display text-foreground glow-text" style={{ fontSize: "clamp(2rem, 7vw, 3rem)" }}>{cn}</h1>
       <p className="text-xs uppercase tracking-[0.35em] text-foreground/60">{vi}</p>
     </div>
   );

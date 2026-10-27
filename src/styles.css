@@ -161,10 +161,12 @@
     color: var(--color-foreground);
   }
 
-  /* Mobile: combat screen fills the real visible viewport (excludes browser chrome) */
+  /* Mobile: combat screen — height is set dynamically via visualViewport JS */
   .combat-screen {
-    height: 100svh;
-    min-height: 480px;
+    height: 100svh;          /* fallback if JS hasn't run yet */
+    min-height: 320px;
+    /* iOS: don't let content go behind home bar */
+    padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 
   /* ─── Landscape phone: screen is very short (~375-430px tall) ─────────── */

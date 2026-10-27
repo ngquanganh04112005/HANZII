@@ -61,12 +61,33 @@ function Splash({ text, children }: { text: string; children?: React.ReactNode }
   );
 }
 
+/** Track real visible height accounting for mobile software keyboard */
+function useVisualViewport() {
+  const [size, setSize] = useState({ height: window.innerHeight, offsetTop: 0 });
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const update = () => setSize({ height: vv.height, offsetTop: vv.offsetTop });
+    vv.addEventListener("resize", update);
+    vv.addEventListener("scroll", update);
+    update();
+    return () => {
+      vv.removeEventListener("resize", update);
+      vv.removeEventListener("scroll", update);
+    };
+  }, []);
+  return size;
+}
+
 function Combat() {
   const { state, activeWords, recordAnswer, recordBattle } = useGame();
   const char = CHARACTERS[state.character!];
   const [, rerender] = useReducer((n: number) => n + 1, 0);
   const wordsRef = useRef(activeWords);
   wordsRef.current = activeWords;
+
+  // Track keyboard-adjusted viewport height (iOS/Android)
+  const { height: vvHeight, offsetTop: vvTop } = useVisualViewport();
 
   const g = useRef<G>(null as unknown as G);
   if (!g.current) {
@@ -223,7 +244,10 @@ function Combat() {
     : s.monsterAnim;
 
   return (
-    <main className="combat-screen relative w-full overflow-hidden bg-ink font-serif text-foreground">
+    <main
+      className="combat-screen relative w-full overflow-hidden bg-ink font-serif text-foreground"
+      style={{ height: vvHeight, marginTop: vvTop }}
+    >
       <img src={bg} alt="" width={1920} height={1088} className="absolute inset-0 h-full w-full object-cover" />
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-ink/50 via-transparent to-ink/80" />
       <div className="pointer-events-none absolute inset-x-[-10%] bottom-[22%] h-40 anim-mist bg-gradient-to-t from-transparent via-jade-glow/15 to-transparent blur-2xl" />

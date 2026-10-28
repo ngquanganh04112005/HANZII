@@ -28,8 +28,14 @@ interface Fx { id: number; kind: "dmg" | "miss" | "hurt" | "kill"; text: string;
 interface G {
   hp: number; qi: number; score: number; combo: number; maxCombo: number; kills: number; damageTaken: number;
   monster: { def: MonsterDef; hp: number; x: number; boundUntil: number; dying: boolean } | null;
-  word: Word | undefined; timeLeft: number; over: boolean; encounter: number;
+  word: Word | undefined; over: boolean; encounter: number;
   monsterAnim: string; heroAnim: string;
+  /** words missed this session that need repeating */
+  missQueue: string[];
+  /** how many words shown since last miss-repeat */
+  wordsSinceMissRepeat: number;
+  /** monster freezes while hint is shown */
+  isHinting: boolean;
 }
 
 function randomMonster(prev?: string) {
@@ -90,11 +96,15 @@ function Combat() {
   const { height: vvHeight, offsetTop: vvTop } = useVisualViewport();
 
   const g = useRef<G>(null as unknown as G);
+  /** miss queue from previous round — used to pre-populate next round */
+  const prevRoundMissRef = useRef<string[]>([]);
   if (!g.current) {
     g.current = {
       hp: PLAYER_MAX_HP, qi: 0, score: 0, combo: 0, maxCombo: 0, kills: 0, damageTaken: 0,
-      monster: null, word: undefined, timeLeft: TURN_SECONDS, over: false, encounter: 1,
+      monster: null, word: undefined, over: false, encounter: 1,
       monsterAnim: "", heroAnim: "",
+      missQueue: [], wordsSinceMissRepeat: 0,
+      isHinting: false,
     };
   }
   const [fx, setFx] = useState<Fx[]>([]);
@@ -102,6 +112,8 @@ function Combat() {
   const [input, setInput] = useState("");
   const [composing, setComposing] = useState("");
   const [shake, setShake] = useState(false);
+  /** hint shown when monster attacks: { hanzi, pinyin, meaning } */
+  const [hint, setHint] = useState<{ hanzi: string; pinyin: string; meaning: string } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const fxId = useRef(0);
 
@@ -111,9 +123,25 @@ function Combat() {
     setTimeout(() => setFx((l) => l.filter((x) => x.id !== id)), 1000);
   }, []);
 
-  const nextWord = useCallback(() => {
-    g.current.word = pickWord(wordsRef.current, g.current.word?.id);
-    g.current.timeLeft = TURN_SECONDS;
+  const nextWord = useCallback((forceId?: string, avoidId?: string) => {
+    const s = g.current;
+    // avoidId: never pick this word (the one just shown/missed)
+    const skip = avoidId ?? s.word?.id;
+    s.wordsSinceMissRepeat += 1;
+    // Every 10 words, pop a missed word from the queue and force it
+    // (but never force the word we just showed)
+    if (!forceId && s.wordsSinceMissRepeat >= 10 && s.missQueue.length > 0) {
+      const idx = s.missQueue.findIndex((id) => id !== skip);
+      if (idx !== -1) {
+        forceId = s.missQueue.splice(idx, 1)[0];
+        s.wordsSinceMissRepeat = 0;
+      }
+    }
+    if (forceId && forceId !== skip) {
+      const forced = wordsRef.current.find((w) => w.id === forceId);
+      if (forced) { s.word = forced; return; }
+    }
+    s.word = pickWord(wordsRef.current, skip);
   }, []);
 
   const spawn = useCallback(() => {
@@ -127,13 +155,31 @@ function Combat() {
   };
 
   const restart = useCallback(() => {
+    // Save current miss queue → sort by wrong count so hardest words come first next round
+    const prevMiss = g.current.missQueue.slice();
+    const sorted = prevMiss.sort((a, b) => {
+      const wa = wordsRef.current.find((w) => w.id === a)?.wrong ?? 0;
+      const wb = wordsRef.current.find((w) => w.id === b)?.wrong ?? 0;
+      return wb - wa;
+    });
+    prevRoundMissRef.current = sorted;
     Object.assign(g.current, {
       hp: PLAYER_MAX_HP, qi: 0, score: 0, combo: 0, maxCombo: 0, kills: 0, damageTaken: 0,
       over: false, encounter: 1, monsterAnim: "", heroAnim: "",
+      // seed new round's miss queue with prev round's misses (hardest first)
+      missQueue: [...prevRoundMissRef.current],
+      wordsSinceMissRepeat: 0,
+      isHinting: false,
     });
     spawn();
-    nextWord();
+    // Force first word of new round to be one from previous miss queue if available
+    if (prevRoundMissRef.current.length > 0) {
+      nextWord(prevRoundMissRef.current[0]);
+    } else {
+      nextWord();
+    }
     setInput("");
+    setHint(null);
     inputRef.current?.focus();
   }, [spawn, nextWord]);
 
@@ -150,6 +196,23 @@ function Combat() {
     recordBattle({ kills: s.kills, score: s.score, combo: s.maxCombo, damage: s.damageTaken });
   }, [recordBattle]);
 
+  // show hint (pinyin + meaning) then switch word; monster is frozen while hint is visible
+  const showHintThenNext = useCallback((missedWord: Word) => {
+    g.current.isHinting = true;
+    setHint({ hanzi: missedWord.hanzi, pinyin: missedWord.pinyin, meaning: missedWord.meaning });
+    const missedId = missedWord.id;
+    setTimeout(() => {
+      // Reset monster to spawn so it walks in fresh for the next word
+      if (g.current.monster && !g.current.monster.dying) {
+        g.current.monster.x = SPAWN_X;
+      }
+      g.current.isHinting = false;
+      setHint(null);
+      // Pass missedId as avoidId so the same word is never immediately forced again
+      nextWord(undefined, missedId);
+    }, 5000);
+  }, [nextWord]);
+
   // game loop
   useEffect(() => {
     let raf = 0;
@@ -158,26 +221,27 @@ function Combat() {
       const dt = Math.min(0.05, (now - last) / 1000);
       last = now;
       const s = g.current;
-      if (!s.over && s.monster && !s.monster.dying) {
-        s.timeLeft -= dt;
-        if (s.timeLeft <= 0) {
-          if (s.word) recordAnswer(s.word.id, false);
-          s.combo = 0;
-          s.monster.x -= 0.08;
-          pushFx({ kind: "miss", text: "时间到!", at: "hero" });
-          nextWord();
-        }
+      // Monster freezes while hint is visible (isHinting lives in g.current, survives re-renders)
+      if (!s.over && s.monster && !s.monster.dying && !s.isHinting) {
         if (now > s.monster.boundUntil) s.monster.x -= s.monster.def.speed * dt;
         if (s.monster.x <= 0) {
           const dmg = s.monster.def.attack;
           s.hp = Math.max(0, s.hp - dmg);
           s.damageTaken += dmg;
           s.combo = 0;
-          s.monster.x = 0.5;
+          s.qi = Math.max(0, s.qi - 8);
+          s.monster.x = 0.6;
           flash("monsterAnim", "anim-lunge");
           flash("heroAnim", "anim-hurt");
           pushFx({ kind: "hurt", text: `-${dmg}`, at: "hero" });
-          if (s.hp <= 0) endBattle();
+          if (s.hp <= 0) { endBattle(); }
+          else if (s.word) {
+            const wid = s.word.id;
+            if (!s.missQueue.includes(wid)) s.missQueue.push(wid);
+            recordAnswer(wid, false);
+            // showHintThenNext sets isHinting=true and clears it after 5s
+            showHintThenNext(s.word);
+          }
         }
       }
       rerender();
@@ -185,7 +249,7 @@ function Combat() {
     };
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
-  }, [recordAnswer, nextWord, pushFx, endBattle]);
+  }, [recordAnswer, nextWord, pushFx, endBattle, showHintThenNext]);
 
   const submit = () => {
     const s = g.current;
@@ -193,6 +257,9 @@ function Combat() {
     if (!input.trim()) return;
     if (isCorrect(input, s.word)) {
       recordAnswer(s.word.id, true);
+      // Remove from missQueue if it was there — user got it right, no need to repeat
+      const idx = s.missQueue.indexOf(s.word.id);
+      if (idx !== -1) s.missQueue.splice(idx, 1);
       const dmg = char.damage + s.combo * char.comboBonus;
       s.combo += 1;
       s.maxCombo = Math.max(s.maxCombo, s.combo);
@@ -222,9 +289,12 @@ function Combat() {
       nextWord();
       setInput("");
     } else {
-      recordAnswer(s.word.id, false);
+      const wid = s.word.id;
+      recordAnswer(wid, false);
       s.combo = 0;
       s.qi = Math.max(0, s.qi - 10);
+      // add to miss queue so it repeats later
+      if (!s.missQueue.includes(wid)) s.missQueue.push(wid);
       if (s.monster) s.monster.x -= 0.05;
       pushFx({ kind: "miss", text: "错!", at: "hero" });
       setShake(true);
@@ -383,13 +453,12 @@ function Combat() {
           className={`panel corner w-full max-w-3xl rounded-sm p-1.5 sm:p-2 md:p-4 ${shake ? "anim-hurt" : ""}`}
           onSubmit={(e) => { e.preventDefault(); submit(); }}
         >
-          {/* Timer bar + hint */}
+          {/* Input label */}
           <div className="mb-1 flex items-center justify-between gap-2 text-[9px] tracking-widest text-gold/70 sm:text-[11px]">
             <span className="hidden sm:inline">输入汉字 · Gõ chữ Hán</span>
-            <span className={`font-semibold ${s.timeLeft < 3 ? "text-blood" : ""}`}>⏳ {Math.max(0, Math.ceil(s.timeLeft))}s</span>
-          </div>
-          <div className="mb-1.5 h-1 overflow-hidden rounded-sm bg-foreground/10">
-            <div className="h-full bar-qi transition-[width] duration-100" style={{ width: `${(Math.max(0, s.timeLeft) / TURN_SECONDS) * 100}%` }} />
+            {s.missQueue.length > 0 && (
+              <span className="text-blood/80">⚠ {s.missQueue.length} từ cần ôn</span>
+            )}
           </div>
           <div className="flex items-center gap-1.5 sm:gap-2">
             <div className="relative flex-1">
@@ -423,6 +492,21 @@ function Combat() {
           </div>
         </form>
       </footer>
+
+      {/* Hint overlay: shown when monster hits player */}
+      {hint && (
+        <div className="absolute inset-0 grid place-items-center bg-ink/60 backdrop-blur-sm z-20 pointer-events-none">
+          <div className="panel corner mx-3 w-full max-w-sm rounded-sm p-5 text-center">
+            <p className="text-[10px] uppercase tracking-[0.25em] text-gold/70 mb-2">Ôn lại từ · 复习</p>
+            <div className="font-display glow-text text-foreground" style={{ fontSize: "clamp(2.5rem, 12vw, 5rem)" }}>{hint.hanzi}</div>
+            <div className="mt-1 font-display text-jade-glow text-lg sm:text-2xl">{hint.pinyin}</div>
+            <div className="mt-1 text-foreground/80 text-sm sm:text-base">{hint.meaning}</div>
+            <div className="mt-3 h-1 overflow-hidden rounded-sm bg-foreground/20">
+              <div className="h-full bg-jade-glow anim-hint-shrink" style={{ animationDuration: "5s" }} />
+            </div>
+          </div>
+        </div>
+      )}
 
       {s.over && (
         <div className="absolute inset-0 grid place-items-center bg-ink/70 backdrop-blur-sm">

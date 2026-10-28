@@ -29,13 +29,16 @@ export const MASTERY_LABEL: Record<Mastery, string> = {
   mastered: "Thuần thục",
 };
 
-/** Difficult words get picked much more often; mastered words rarely. */
+/**
+ * Difficult words appear more often but are capped so new/learning words
+ * still surface regularly even with large (200+ word) collections.
+ */
 export function wordWeight(w: Word): number {
   const m = mastery(w);
-  if (m === "mastered") return 0.4;
-  if (m === "difficult") return 3 + w.wrong;
-  if (m === "new") return 1.5;
-  return 1;
+  if (m === "mastered") return 0.2;  // rarely re-tested
+  if (m === "difficult") return Math.min(4, 2 + w.wrong * 0.5); // capped so they don't crowd out new words
+  if (m === "new") return 2;          // boost new words so all 291 get seen
+  return 1;                           // "learning"
 }
 
 export function pickWord(words: Word[], avoidId?: string, rand = Math.random): Word | undefined {
